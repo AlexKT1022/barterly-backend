@@ -3,17 +3,17 @@ const errorHandler = (err, req, res, next) => {
   // when multiple cases are handled the same way.
   switch (err.code) {
     // Invalid type
-    case "22P02":
+    case '22P02':
       return res.status(400).send(err.message);
     // Unique constraint violation
-    case "23505":
+    case '23505':
     // Foreign key violation
-    case "23503":
+    case '23503':
       return res.status(400).send(err.detail);
     default:
       console.error(err);
 
-      return res.status(500).send("Sorry! Something went wrong.");
+      return res.status(500).send('Sorry! Something went wrong.');
   }
 };
 
