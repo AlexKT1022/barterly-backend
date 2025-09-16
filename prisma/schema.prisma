@@ -1,6 +1,6 @@
 generator client {
   provider = "prisma-client-js"
-  output   = "../generated/prisma"
+  output   = "../node_modules/.prisma/client"
 }
 
 datasource db {
@@ -9,30 +9,32 @@ datasource db {
 }
 
 model User {
-  id              Int      @id @default(autoincrement())
-  username        String   @unique
+  id              Int        @id @default(autoincrement())
+  username        String     @unique
   password        String
-  profileImageUrl String   @map("profile_image_url")
+  profileImageUrl String     @map("profile_image_url")
   location        String
-  createdAt       DateTime @default(now()) @map("created_at")
+  createdAt       DateTime   @default(now()) @map("created_at")
+  posts           Post[]
+  responses       Response[]
 
-  posts     Post[]
-  responses Response[]
+  @@map("users")
 }
 
 model Post {
-  id          Int      @id @default(autoincrement())
-  authorId    Int      @map("author_id")
+  id          Int        @id @default(autoincrement())
+  authorId    Int        @map("author_id")
   title       String
   description String
-  status      String   @default("open")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @map("updated_at")
+  status      String     @default("open")
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime?  @map("updated_at")
+  author      User       @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  items       PostItem[]
+  responses   Response[]
+  trades      Trade[]
 
-  author    User       @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  items     PostItem[]
-  responses Response[]
-  trades    Trade[]
+  @@map("posts")
 }
 
 model PostItem {
@@ -43,34 +45,37 @@ model PostItem {
   condition   String?
   imageUrl    String? @map("image_url")
   quantity    Int     @default(1)
+  post        Post    @relation(fields: [postId], references: [id], onDelete: Cascade)
 
-  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  @@map("post_items")
 }
 
 model Response {
-  id        Int      @id @default(autoincrement())
-  postId    Int      @map("post_id")
-  authorId  Int      @map("author_id")
+  id        Int            @id @default(autoincrement())
+  postId    Int            @map("post_id")
+  authorId  Int            @map("author_id")
   message   String?
-  status    String   @default("pending")
-  createdAt DateTime @default(now()) @map("created_at")
+  status    String         @default("pending")
+  createdAt DateTime       @default(now()) @map("created_at")
+  author    User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  post      Post           @relation(fields: [postId], references: [id], onDelete: Cascade)
+  items     ResponseItem[]
+  Trade     Trade[]
 
-  post   Post           @relation(fields: [postId], references: [id], onDelete: Cascade)
-  author User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  items  ResponseItem[]
-  Trade  Trade[]
+  @@map("responses")
 }
 
 model ResponseItem {
-  id          Int     @id @default(autoincrement())
-  responseId  Int     @map("response_id")
+  id          Int      @id @default(autoincrement())
+  responseId  Int      @map("response_id")
   name        String
   description String?
   condition   String?
-  imageUrl    String? @map("image_url")
-  quantity    Int     @default(1)
+  imageUrl    String?  @map("image_url")
+  quantity    Int      @default(1)
+  Response    Response @relation(fields: [responseId], references: [id], onDelete: Cascade)
 
-  Response Response @relation(fields: [responseId], references: [id], onDelete: Cascade)
+  @@map("response_items")
 }
 
 model Trade {
@@ -79,7 +84,8 @@ model Trade {
   responseId Int      @map("response_id")
   agreedAt   DateTime @map("agreed_at")
   status     String   @default("completed")
+  post       Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  response   Response @relation(fields: [responseId], references: [id], onDelete: Cascade)
 
-  post     Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
-  response Response @relation(fields: [responseId], references: [id], onDelete: Cascade)
+  @@map("trades")
 }

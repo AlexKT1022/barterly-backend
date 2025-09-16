@@ -14,11 +14,17 @@
   "author": "",
   "license": "ISC",
   "main": "app.js",
+  "imports": {
+    "#*": "./*.js"
+  },
   "keywords": [],
   "scripts": {
-    "db:reset": "npm run db:schema && npm run db:seed",
-    "db:schema": "psql -d barterly -f db/schema.sql",
-    "db:seed": "node --env-file=.env db/seed.js",
+    "db:generate": "npx prisma generate",
+    "db:migrate": "npx prisma migrate dev",
+    "db:migrate:reset": "npx prisma migrate reset --force",
+    "db:reset": "npm run db:generate && npx prisma migrate reset --force && npm run db:seed",
+    "db:seed": "node db/seed.js",
+    "db:studio": "npx prisma studio",
     "dev": "node --watch --env-file=.env server.js",
     "start": "node --env-file=.env server.js"
   },
@@ -39,5 +45,8 @@
     "prettier-plugin-pkg": "^0.21.2",
     "prettier-plugin-sql": "^0.19.2",
     "prisma": "^6.16.1"
+  },
+  "prisma": {
+    "seed": "node db/seed.js"
   }
 }

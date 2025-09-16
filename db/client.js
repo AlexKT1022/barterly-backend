@@ -1,5 +1,5 @@
-import pg from 'pg';
+import { PrismaClient } from '@prisma/client';
 
-const db = new pg.Client(process.env.DATABASE_URL);
+const prisma = new PrismaClient();
 
-export default db;
+export default prisma;
