@@ -1,50 +1,63 @@
 // /db/queries/userQueries.js
-import db from '#db/client';
+import prisma from '#db/client.js'; 
 import bcrypt from 'bcrypt';
 
 const SALT_ROUNDS = 10;
 
-// CREATE Register
-export const createUser = async (username, email, password, profileImageUrl = null, location = null) => {
+
+const toPublicUser = (u) => ({
+  id: u.id,
+  username: u.username,
+  profile_image_url: u.profileImageUrl, 
+  location: u.location,
+  created_at: u.createdAt,
+});
+
+export const createUser = async (username, password, profileImageUrl = null, location = null) => {
   const hashed = await bcrypt.hash(password, SALT_ROUNDS);
-  const sql = `
-    INSERT INTO users (username, email, password_hash, profile_image_url, location, created_at)
-    VALUES ($1, $2, $3, $4, $5, NOW())
-    RETURNING id, username, email, profile_image_url, location, created_at
-  `;
-  const { rows } = await db.query(sql, [username, email, hashed, profileImageUrl, location]);
-  return rows[0];
+
+  try {
+    const user = await prisma.user.create({
+      data: {
+        username,
+        password: hashed, // stored in 'password' column
+        profileImageUrl: profileImageUrl ?? `https://picsum.photos/seed/${username}/200/200`,
+        location: location ?? 'Unknown',
+      },
+      
+      select: { id: true, username: true, profileImageUrl: true, location: true, createdAt: true },
+    });
+
+    return toPublicUser(user);
+  } catch (err) {
+   
+    if (err?.code === 'P2002') {
+      const e = new Error('Username is already taken');
+      e.status = 409;
+      throw e;
+    }
+    throw err;
+  }
 };
 
-// READ by id
 export const getUserById = async (id) => {
-  const { rows } = await db.query(
-    `SELECT id, username, email, profile_image_url, location, created_at
-     FROM users WHERE id = $1`,
-    [id]
-  );
-  return rows[0];
+  const user = await prisma.user.findUnique({
+    where: { id: Number(id) },
+    select: { id: true, username: true, profileImageUrl: true, location: true, createdAt: true },
+  });
+  return user ? toPublicUser(user) : null;
 };
 
-// Auth helper (used in login)
-export const getUserByCredentials = async (email, password) => {
-  const { rows } = await db.query(
-    `SELECT * FROM users WHERE email = $1`,
-    [email]
-  );
-  const user = rows[0];
+export const getUserByCredentials = async (username, password) => {
+  
+  const user = await prisma.user.findUnique({
+    where: { username },
+  });
   if (!user) return null;
 
-  const ok = await bcrypt.compare(password, user.password_hash);
+  const ok = await bcrypt.compare(password, user.password);
   if (!ok) return null;
 
-
-  return {
-    id: user.id,
-    username: user.username,
-    email: user.email,
-    profile_image_url: user.profile_image_url,
-    location: user.location,
-    created_at: user.created_at,
-  };
+ 
+  return toPublicUser(user);
 };
