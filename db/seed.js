@@ -1,8 +1,8 @@
-import prisma from '#db/client';
+import client from '#db/client';
 
-const generateUsers = async () => {
+const generateUsers = () => {
   return Promise.all([
-    prisma.user.create({
+    client.user.create({
       data: {
         username: 'sam',
         password: 'hashedpassword456',
@@ -10,7 +10,7 @@ const generateUsers = async () => {
         location: 'San Francisco',
       },
     }),
-    prisma.user.create({
+    client.user.create({
       data: {
         username: 'alex',
         password: 'hashedpassword123',
@@ -18,7 +18,7 @@ const generateUsers = async () => {
         location: 'New York',
       },
     }),
-    prisma.user.create({
+    client.user.create({
       data: {
         username: 'jordan',
         password: 'hashedpassword789',
@@ -32,7 +32,7 @@ const generateUsers = async () => {
 const generatePosts = async (users) => {
   const [sam, alex, jordan] = users;
 
-  const post1 = await prisma.post.create({
+  const post1 = await client.post.create({
     data: {
       title: 'Synth in Mint Condition',
       description: 'Want to trade for a guitar.',
@@ -49,7 +49,7 @@ const generatePosts = async (users) => {
     },
   });
 
-  const post2 = await prisma.post.create({
+  const post2 = await client.post.create({
     data: {
       title: 'Vintage Guitar for Trade',
       description: 'Looking to trade my Fender Strat for a synth.',
@@ -73,7 +73,7 @@ const generateResponses = async (posts, users) => {
   const [post1, post2] = posts;
   const [sam, alex] = users;
 
-  const response1 = await prisma.response.create({
+  const response1 = await client.response.create({
     data: {
       postId: post2.id,
       authorId: sam.id,
@@ -90,7 +90,7 @@ const generateResponses = async (posts, users) => {
     },
   });
 
-  const response2 = await prisma.response.create({
+  const response2 = await client.response.create({
     data: {
       postId: post1.id,
       authorId: alex.id,
@@ -114,7 +114,7 @@ const generateTrades = async (posts, responses) => {
   const [post1, post2] = posts;
   const [response1, response2] = responses;
 
-  await prisma.trade.create({
+  await client.trade.create({
     data: {
       postId: post1.id,
       responseId: response2.id,
@@ -123,7 +123,7 @@ const generateTrades = async (posts, responses) => {
     },
   });
 
-  await prisma.trade.create({
+  await client.trade.create({
     data: {
       postId: post2.id,
       responseId: response1.id,
@@ -139,6 +139,7 @@ const main = async () => {
   const users = await generateUsers();
   const posts = await generatePosts(users);
   const responses = await generateResponses(posts, users);
+
   await generateTrades(posts, responses);
 
   console.log('✅ Database has been seeded!');
@@ -150,5 +151,5 @@ main()
     process.exit(1);
   })
   .finally(async () => {
-    await prisma.$disconnect();
+    await client.$disconnect();
   });
