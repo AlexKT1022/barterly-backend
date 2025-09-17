@@ -1,7 +1,7 @@
 {
   "name": "backend",
   "version": "1.0.0",
-  "description": "",
+  "description": "```\r ├── backend/\r │   ├── api/\r │   │   └── routes_here      \r │   ├── db/\r │   │   ├── queries\r │   │   ├── client.js\r │   │   ├── schema.sql\r │   │   └── seed.js       \r │   ├── middleware/\r │   │   ├── errorHandler.js\r │   │   ├── getUserFromToken.js\r │   │   ├── requireBody.js\r │   │   └── requireUser.js      \r │   ├── routes   \r │   ├── utils/\r │   │   └── jwt.js     \r │   ├── app.js\r │   └── server.js\r ```",
   "main": "app.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
@@ -17,5 +17,8 @@
   "bugs": {
     "url": "https://github.com/AlexKT1022/barterly-backend/issues"
   },
-  "homepage": "https://github.com/AlexKT1022/barterly-backend#readme"
+  "homepage": "https://github.com/AlexKT1022/barterly-backend#readme",
+  "dependencies": {
+    "express": "^5.1.0"
+  }
 }
