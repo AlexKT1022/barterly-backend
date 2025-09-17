@@ -4,9 +4,8 @@ import morgan from 'morgan';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-import postsRouter from './api/postsRouter.js';
-import usersRouter from './api/usersRouter.js';
-
+import postsRouter from '#api/routes/postsRouter';
+// import usersRouter from '#api/routes/usersRoute';
 import errorHandler from '#middleware/errorHandler';
 import getUserFromToken from '#middleware/getUserFromToken';
 
@@ -24,7 +23,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use(cors());
 app.use(morgan('dev'));
 
-app.use('/users', usersRouter);
+// app.use('/users', usersRouter);
 app.use('/posts', postsRouter);
 
 app.get('/', (req, res) => {
