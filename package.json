@@ -1,24 +1,67 @@
 {
   "name": "backend",
   "version": "1.0.0",
+<<<<<<< HEAD
   "description": "```\r ├── backend/\r │   ├── api/\r │   │   └── routes_here      \r │   ├── db/\r │   │   ├── queries\r │   │   ├── client.js\r │   │   ├── schema.sql\r │   │   └── seed.js       \r │   ├── middleware/\r │   │   ├── errorHandler.js\r │   │   ├── getUserFromToken.js\r │   │   ├── requireBody.js\r │   │   └── requireUser.js      \r │   ├── routes   \r │   ├── utils/\r │   │   └── jwt.js     \r │   ├── app.js\r │   └── server.js\r ```",
   "main": "app.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node server.js"
   },
+=======
+  "type": "module",
+  "description": "",
+>>>>>>> beaa17da9e5c0a104183f75210e79eee867a0ffb
   "repository": {
     "type": "git",
     "url": "git+https://github.com/AlexKT1022/barterly-backend.git"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "homepage": "https://github.com/AlexKT1022/barterly-backend#readme",
   "bugs": {
     "url": "https://github.com/AlexKT1022/barterly-backend/issues"
   },
+<<<<<<< HEAD
   "homepage": "https://github.com/AlexKT1022/barterly-backend#readme",
   "dependencies": {
     "express": "^5.1.0"
+=======
+  "author": "",
+  "license": "ISC",
+  "main": "app.js",
+  "imports": {
+    "#*": "./*.js"
+  },
+  "keywords": [],
+  "scripts": {
+    "db:generate": "npx prisma generate",
+    "db:migrate": "npx prisma migrate dev",
+    "db:migrate:reset": "npx prisma migrate reset --force",
+    "db:reset": "npm run db:generate && npx prisma migrate reset --force && npm run db:seed",
+    "db:seed": "node db/seed.js",
+    "db:studio": "npx prisma studio",
+    "dev": "node --watch --env-file=.env server.js",
+    "start": "node --env-file=.env server.js"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.16.2",
+    "bcrypt": "^5.1.1",
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "morgan": "^1.10.0",
+    "pg": "^8.14.1"
+  },
+  "devDependencies": {
+    "@faker-js/faker": "^10.0.0",
+    "prettier": "^3.6.2",
+    "prettier-plugin-embed": "^0.5.0",
+    "prettier-plugin-organize-imports": "^4.2.0",
+    "prettier-plugin-pkg": "^0.21.2",
+    "prettier-plugin-sql": "^0.19.2",
+    "prisma": "^6.16.1"
+  },
+  "prisma": {
+    "seed": "node db/seed.js"
+>>>>>>> beaa17da9e5c0a104183f75210e79eee867a0ffb
   }
 }

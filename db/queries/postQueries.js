@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 // /db/queries/postQueries.js
 import db from '#db/client';
 
@@ -123,3 +124,10 @@ export const deletePostByOwner = async ({ id, ownerId }) => {
   await db.query(`DELETE FROM post_items WHERE post_id=$1`, [id]);
   await db.query(`DELETE FROM posts WHERE id=$1`, [id]);
 };
+=======
+import prisma from '#db/client';
+
+export const createPost = async (data) => {
+  await prisma.post.create();
+};
+>>>>>>> beaa17da9e5c0a104183f75210e79eee867a0ffb

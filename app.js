@@ -30,6 +30,10 @@ app.use(getUserFromToken);
 app.use('/api/users', usersRouter);
 app.use('/api/posts', postsRouter);
 
+app.get('/', (req, res) => {
+  return res.send(':)');
+});
+
 app.use(errorHandler);
 
 export default app;
