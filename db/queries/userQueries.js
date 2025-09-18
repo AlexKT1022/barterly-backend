@@ -1,5 +1,5 @@
 // /db/queries/userQueries.js
-import prisma from '#db/prisma.js';
+import prisma from '#db/client.js';
 import bcrypt from 'bcrypt';
 
 const SALT_ROUNDS = 10;
