@@ -4,26 +4,29 @@ import bcrypt from 'bcrypt';
 
 const SALT_ROUNDS = 10;
 
-const toPublic = (u) => ({
-  id: u.id,
-  username: u.username,
-  profile_image_url: u.profileImageUrl,
-  location: u.location,
-  created_at: u.createdAt,
+const toPublic = (user) => ({
+  id: user.id,
+  username: user.username,
+  profile_image_url: user.profileImageUrl,
+  location: user.location,
+  created_at: user.createdAt,
 });
 
 // Just for reference. Prisma Error P2002 signifies a "Unique constraint failed" error.
 /* -------------------- Auth / basic profile -------------------- */
 
 export const createUser = async (
+  firstName,
+  lastName,
   username,
   password,
   profileImageUrl = null,
-  location = null
+  location = null,
+  bio
 ) => {
   const hashed = await bcrypt.hash(password, SALT_ROUNDS);
   try {
-    const u = await prisma.user.create({
+    const user = await prisma.user.create({
       data: {
         username,
         password: hashed,
@@ -39,7 +42,7 @@ export const createUser = async (
         createdAt: true,
       },
     });
-    return toPublic(u);
+    return toPublic(user);
   } catch (err) {
     if (err?.code === 'P2002') {
       const e = new Error('Username is already taken');

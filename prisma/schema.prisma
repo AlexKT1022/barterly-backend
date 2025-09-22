@@ -9,30 +9,38 @@ datasource db {
 }
 
 model User {
-  id              Int        @id @default(autoincrement())
-  username        String     @unique
+  id              Int       @id @default(autoincrement())
+  first_name      String
+  last_name       String
+  bio             String?   @default("no bio provided")
+  username        String    @unique
   password        String
-  profileImageUrl String     @map("profile_image_url")
-  location        String?    @default("no location provided")
-  createdAt       DateTime?  @default(now()) @map("created_at")
+  profileImageUrl String    @map("profile_image_url")
+  location        String?   @default("no location provided")
+  createdAt       DateTime? @default(now()) @map("created_at")
+
   posts           Post[]
   responses       Response[]
+  reviewsGiven    Review[]   @relation("Reviewer")
+  reviewsReceived Review[]   @relation("Reviewee")
 
   @@map("users")
 }
 
 model Post {
-  id          Int        @id @default(autoincrement())
-  authorId    Int        @map("author_id")
+  id          Int       @id @default(autoincrement())
+  authorId    Int       @map("author_id")
   title       String
-  description String?    @default("no description provided")
-  status      String     @default("open")
-  createdAt   DateTime   @default(now()) @map("created_at")
-  updatedAt   DateTime?  @map("updated_at")
-  author      User       @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  items       PostItem[]
-  responses   Response[]
-  trades      Trade[]
+  description String?   @default("no description provided")
+  status      String    @default("open")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime? @map("updated_at")
+
+  author User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  items     PostItem[]
+  responses Response[]
+  trades    Trade[]
 
   @@map("posts")
 }
@@ -45,35 +53,39 @@ model PostItem {
   condition   String?
   imageUrl    String? @map("image_url")
   quantity    Int?    @default(1)
-  post        Post    @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
 
   @@map("post_items")
 }
 
 model Response {
-  id        Int            @id @default(autoincrement())
-  postId    Int            @map("post_id")
-  authorId  Int            @map("author_id")
-  message   String?        @default("no message provided")
-  status    String         @default("pending")
-  createdAt DateTime       @default(now()) @map("created_at")
-  author    User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  post      Post           @relation(fields: [postId], references: [id], onDelete: Cascade)
-  items     ResponseItem[]
-  Trade     Trade[]
+  id        Int      @id @default(autoincrement())
+  postId    Int      @map("post_id")
+  authorId  Int      @map("author_id")
+  message   String?  @default("no message provided")
+  status    String   @default("pending")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  author User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  post   Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  items ResponseItem[]
+  Trade Trade[]
 
   @@map("responses")
 }
 
 model ResponseItem {
-  id          Int      @id @default(autoincrement())
-  responseId  Int      @map("response_id")
+  id          Int     @id @default(autoincrement())
+  responseId  Int     @map("response_id")
   name        String
-  description String?  @default("no description provided.")
+  description String? @default("no description provided.")
   condition   String
-  imageUrl    String?  @map("image_url")
-  quantity    Int      @default(1)
-  Response    Response @relation(fields: [responseId], references: [id], onDelete: Cascade)
+  imageUrl    String? @map("image_url")
+  quantity    Int     @default(1)
+
+  Response Response @relation(fields: [responseId], references: [id], onDelete: Cascade)
 
   @@map("response_items")
 }
@@ -84,8 +96,21 @@ model Trade {
   responseId Int      @map("response_id")
   agreedAt   DateTime @map("agreed_at")
   status     String   @default("completed")
-  post       Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
-  response   Response @relation(fields: [responseId], references: [id], onDelete: Cascade)
+
+  post     Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  response Response @relation(fields: [responseId], references: [id], onDelete: Cascade)
 
   @@map("trades")
+}
+
+model Review {
+  id         Int @id @default(autoincrement())
+  reviewerId Int @map("reviewer_id")
+  revieweeId Int @map("reviewee_id")
+  tradeId    Int @map("trade_id")
+
+  reviewer User @relation("Reviewer", fields: [reviewerId], references: [id], onDelete: Cascade)
+  reviewee User @relation("Reviewee", fields: [revieweeId], references: [id], onDelete: Cascade)
+
+  @@map("reviews")
 }

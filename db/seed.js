@@ -1,155 +1,302 @@
-import client from '#db/client';
+import { PrismaClient } from '@prisma/client';
 
-const generateUsers = () => {
-  return Promise.all([
-    client.user.create({
-      data: {
-        username: 'sam',
-        password: 'hashedpassword456',
-        profileImageUrl: '/images/default.png',
-        location: 'San Francisco',
-      },
-    }),
-    client.user.create({
-      data: {
-        username: 'alex',
-        password: 'hashedpassword123',
-        profileImageUrl: '/images/default.png',
+const prisma = new PrismaClient();
+
+const createUsers = async () => {
+  await prisma.user.createMany({
+    data: [
+      {
+        first_name: 'Alice',
+        last_name: 'Anderson',
+        username: 'alice123',
+        password: 'password1',
+        profileImageUrl:
+          'https://i.pinimg.com/736x/08/af/17/08af176fb062281fc1e44a1635d62e13.jpg',
         location: 'New York',
+        bio: 'Musician and trader.',
       },
-    }),
-    client.user.create({
-      data: {
-        username: 'jordan',
-        password: 'hashedpassword789',
-        profileImageUrl: '/images/default.png',
+      {
+        first_name: 'Bob',
+        last_name: 'Baker',
+        username: 'bob456',
+        password: 'password2',
+        profileImageUrl:
+          'https://i.pinimg.com/1200x/4b/f0/76/4bf0769cf5d98ce71311fdd83bed94c1.jpg',
+        location: 'Los Angeles',
+        bio: 'Collector of electronics.',
+      },
+      {
+        first_name: 'Charlie',
+        last_name: 'Chapman',
+        username: 'charlie789',
+        password: 'password3',
+        profileImageUrl:
+          'https://preview.redd.it/the-original-image-of-the-monkey-thinking-meme-v0-ea1hkdjnx9af1.jpeg?width=640&crop=smart&auto=webp&s=a2441b38e0de398d58f2fea15cf7c8e14f9d93b2',
         location: 'Chicago',
+        bio: 'Photographer and hobbyist.',
       },
-    }),
-  ]);
-};
-
-const generatePosts = async (users) => {
-  const [sam, alex, jordan] = users;
-
-  const post1 = await client.post.create({
-    data: {
-      title: 'Synth in Mint Condition',
-      description: 'Want to trade for a guitar.',
-      authorId: sam.id,
-      items: {
-        create: [
-          {
-            name: 'Moog Sub 37',
-            condition: 'Like New',
-            quantity: 1,
-          },
-        ],
+      {
+        first_name: 'Dana',
+        last_name: 'Diaz',
+        username: 'dana101',
+        password: 'password4',
+        profileImageUrl:
+          'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRB9HqlHjtBP56SMXewHXXjDRjYoDYZcNfckQ&s',
+        location: 'San Francisco',
+        bio: 'Vintage furniture enthusiast.',
       },
-    },
+      {
+        first_name: 'Ethan',
+        last_name: 'Evans',
+        username: 'ethan202',
+        password: 'password5',
+        profileImageUrl:
+          'https://i.kym-cdn.com/entries/icons/facebook/000/042/635/xddtree.jpg',
+        location: 'Seattle',
+        bio: 'Gamer and PC builder.',
+      },
+    ],
+    skipDuplicates: true,
   });
 
-  const post2 = await client.post.create({
+  return prisma.user.findMany();
+};
+
+const createPosts = async (users) => {
+  const posts = [];
+  const post1 = await prisma.post.create({
     data: {
+      authorId: users.find((user) => user.username === 'alice123').id,
       title: 'Vintage Guitar for Trade',
-      description: 'Looking to trade my Fender Strat for a synth.',
-      authorId: alex.id,
+      description: 'Looking to trade my vintage acoustic guitar.',
       items: {
         create: [
           {
-            name: 'Fender Stratocaster',
+            name: 'Vintage Acoustic Guitar',
+            description: '70s era, warm sound.',
             condition: 'Used - Good',
+            imageUrl: 'https://example.com/guitar.png',
             quantity: 1,
           },
         ],
       },
     },
+    include: { items: true },
   });
 
-  return [post1, post2];
-};
+  posts.push(post1);
 
-const generateResponses = async (posts, users) => {
-  const [post1, post2] = posts;
-  const [sam, alex] = users;
-
-  const response1 = await client.response.create({
+  const post2 = await prisma.post.create({
     data: {
-      postId: post2.id,
-      authorId: sam.id,
-      message: 'I can trade my Moog Sub 37 for your guitar.',
+      authorId: users.find((user) => user.username === 'bob456').id,
+      title: 'Gaming Laptop Available',
+      description: 'High-end gaming laptop, open to trade offers.',
       items: {
         create: [
           {
-            name: 'Moog Sub 37',
+            name: 'Gaming Laptop',
+            description: 'RTX 3080, 16GB RAM',
             condition: 'Like New',
+            imageUrl: 'https://example.com/laptop.png',
             quantity: 1,
           },
         ],
       },
     },
+    include: { items: true },
   });
+  posts.push(post2);
 
-  const response2 = await client.response.create({
+  const post3 = await prisma.post.create({
     data: {
-      postId: post1.id,
-      authorId: alex.id,
-      message: 'I can trade my Fender Strat for your synth.',
+      authorId: users.find((user) => user.username === 'charlie789').id,
+      title: 'Camera Lenses for Trade',
+      description: 'Selling/trading a set of DSLR lenses.',
       items: {
         create: [
           {
-            name: 'Fender Stratocaster',
+            name: 'Canon 50mm Lens',
+            condition: 'Used - Excellent',
+            imageUrl: 'https://example.com/lens.png',
+            quantity: 1,
+          },
+          {
+            name: 'Canon 24-70mm Lens',
             condition: 'Used - Good',
+            imageUrl: 'https://example.com/lens2.png',
             quantity: 1,
           },
         ],
       },
     },
+    include: { items: true },
   });
+  posts.push(post3);
 
-  return [response1, response2];
+  const post4 = await prisma.post.create({
+    data: {
+      authorId: users.find((user) => user.username === 'dana101').id,
+      title: 'Antique Chair Set',
+      description: 'Set of 4 antique wooden chairs in great condition.',
+      items: {
+        create: [
+          {
+            name: 'Antique Wooden Chair',
+            description: 'Solid oak, carved design.',
+            condition: 'Used - Good',
+            imageUrl: 'https://example.com/chair.png',
+            quantity: 4,
+          },
+        ],
+      },
+    },
+    include: { items: true },
+  });
+  posts.push(post4);
+
+  return posts;
 };
 
-const generateTrades = async (posts, responses) => {
-  const [post1, post2] = posts;
-  const [response1, response2] = responses;
+const createResponses = async (posts, users) => {
+  const responses = [];
 
-  await client.trade.create({
+  const response1 = await prisma.response.create({
     data: {
-      postId: post1.id,
-      responseId: response2.id,
+      postId: posts.find((post) => post.title.includes('Guitar')).id,
+      authorId: users.find((user) => user.username === 'bob456').id,
+      message: 'Would you accept this DJ mixer for the guitar?',
+      items: {
+        create: [
+          {
+            name: 'DJ Mixer',
+            description: 'Professional mixer, barely used.',
+            condition: 'Like New',
+            imageUrl: 'https://example.com/mixer.png',
+            quantity: 1,
+          },
+        ],
+      },
+    },
+    include: { items: true },
+  });
+  responses.push(response1);
+
+  const response2 = await prisma.response.create({
+    data: {
+      postId: posts.find((post) => post.title.includes('Laptop')).id,
+      authorId: users.find((user) => user.username === 'charlie789').id,
+      message: 'I have a DSLR camera available for trade.',
+      items: {
+        create: [
+          {
+            name: 'DSLR Camera',
+            description: 'Canon EOS with two lenses.',
+            condition: 'Used - Good',
+            imageUrl: 'https://example.com/camera.png',
+            quantity: 1,
+          },
+        ],
+      },
+    },
+    include: { items: true },
+  });
+  responses.push(response2);
+
+  const response3 = await prisma.response.create({
+    data: {
+      postId: posts.find((post) => post.title.includes('Chair')).id,
+      authorId: users.find((user) => user.username === 'ethan202').id,
+      message: 'Would you trade for a mechanical keyboard?',
+      items: {
+        create: [
+          {
+            name: 'Mechanical Keyboard',
+            description: 'RGB backlight, blue switches.',
+            condition: 'Like New',
+            imageUrl: 'https://example.com/keyboard.png',
+            quantity: 1,
+          },
+        ],
+      },
+    },
+    include: { items: true },
+  });
+  responses.push(response3);
+
+  return responses;
+};
+
+const createTrades = async (posts, responses) => {
+  const trades = [];
+
+  const trade1 = await prisma.trade.create({
+    data: {
+      postId: posts.find((post) => post.title.includes('Guitar')).id,
+      responseId: responses.find((response) =>
+        response.message.includes('DJ mixer')
+      ).id,
       agreedAt: new Date(),
       status: 'completed',
     },
   });
+  trades.push(trade1);
 
-  await client.trade.create({
+  const trade2 = await prisma.trade.create({
     data: {
-      postId: post2.id,
-      responseId: response1.id,
+      postId: posts.find((post) => post.title.includes('Laptop')).id,
+      responseId: responses.find((response) =>
+        response.message.includes('DSLR')
+      ).id,
       agreedAt: new Date(),
       status: 'completed',
     },
   });
+  trades.push(trade2);
+
+  return trades;
 };
 
-const main = async () => {
-  console.log('🌱 Starting database seed...');
+const createReviews = async (trades, posts, responses) => {
+  for (const trade of trades) {
+    const post = posts.find((post) => post.id === trade.postId);
+    const response = responses.find(
+      (response) => response.id === trade.responseId
+    );
 
-  const users = await generateUsers();
-  const posts = await generatePosts(users);
-  const responses = await generateResponses(posts, users);
-
-  await generateTrades(posts, responses);
-
-  console.log('✅ Database has been seeded!');
+    if (post && response) {
+      await prisma.review.createMany({
+        data: [
+          {
+            reviewerId: post.authorId,
+            revieweeId: response.authorId,
+            tradeId: trade.id,
+          },
+          {
+            reviewerId: response.authorId,
+            revieweeId: post.authorId,
+            tradeId: trade.id,
+          },
+        ],
+        skipDuplicates: true,
+      });
+    }
+  }
 };
 
-main()
+const seed = async () => {
+  const users = await createUsers();
+  const posts = await createPosts(users);
+  const responses = await createResponses(posts, users);
+  const trades = await createTrades(posts, responses);
+
+  await createReviews(trades, posts, responses);
+};
+
+seed()
   .catch((err) => {
-    console.error('❌ Seeding failed:', err);
+    console.error('❌ Seed error:', err);
     process.exit(1);
   })
   .finally(async () => {
-    await client.$disconnect();
+    await prisma.$disconnect();
   });
