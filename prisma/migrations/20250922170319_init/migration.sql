@@ -78,6 +78,8 @@ CREATE TABLE "public"."trades" (
 -- CreateTable
 CREATE TABLE "public"."reviews" (
     "id" SERIAL NOT NULL,
+    "rating" INTEGER NOT NULL,
+    "comment" TEXT NOT NULL DEFAULT 'no comment provided',
     "reviewer_id" INTEGER NOT NULL,
     "reviewee_id" INTEGER NOT NULL,
     "trade_id" INTEGER NOT NULL,
