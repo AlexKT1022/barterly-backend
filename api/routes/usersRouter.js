@@ -124,23 +124,31 @@ router.get('/:id', async (req, res, next) => {
 
 router.post(
   '/register',
-  requireBody(['username', 'password']),
+  // now require first_name + last_name too
+  requireBody(['first_name', 'last_name', 'username', 'password']),
   async (req, res, next) => {
     try {
-      const { username, password, profile_image_url, location } = req.body;
-      const user = await createUser(
+      const {
+        first_name,
+        last_name,
         username,
         password,
+        bio,                   // optional (defaults in schema)
+        profile_image_url,     // optional
+        location,              // optional (defaults in schema)
+      } = req.body;
+
+      // Create user in DB
+      const user = await createUser({
+        first_name,
+        last_name,
+        username,
+        password,
+        bio,
         profile_image_url,
-        location
-      );
-      const token = createToken({ id: user.id, username: user.username });
-      res.status(201).send({ token, user });
-    } catch (e) {
-      next(e);
-    }
-  }
-);
+        location,
+      });
+
 
 router.post(
   '/login',
