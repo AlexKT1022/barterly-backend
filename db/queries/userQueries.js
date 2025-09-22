@@ -4,50 +4,76 @@ import bcrypt from 'bcrypt';
 
 const SALT_ROUNDS = 10;
 
-const toPublic = (user) => ({
-  id: user.id,
-  username: user.username,
-  profile_image_url: user.profileImageUrl,
-  location: user.location,
-  created_at: user.createdAt,
+const toPublicUser = (u) => ({
+  id: u.id,
+  username: u.username,
+  first_name: u.first_name,
+  last_name: u.last_name,
+  bio: u.bio,
+  profile_image_url: u.profileImageUrl, 
+  location: u.location,
+  created_at: u.createdAt,
 });
 
 // Just for reference. Prisma Error P2002 signifies a "Unique constraint failed" error.
 /* -------------------- Auth / basic profile -------------------- */
 
-export const createUser = async (
-  firstName,
-  lastName,
+export const createUser = async ({
+  first_name,
+  last_name,
   username,
   password,
-  profileImageUrl = null,
-  location = null,
-  bio
-) => {
+  bio,
+  profile_image_url,
+  location,
+}) => {
+  if (!first_name || !last_name) {
+    const e = new Error('first_name and last_name are required');
+    e.status = 400; throw e;
+  }
+  if (!username || !password) {
+    const e = new Error('username and password are required');
+    e.status = 400; throw e;
+  }
+  if (password.length < 8) {
+    const e = new Error('Password must be at least 8 characters');
+    e.status = 400; throw e;
+  }
+
   const hashed = await bcrypt.hash(password, SALT_ROUNDS);
+
   try {
     const user = await prisma.user.create({
       data: {
-        username,
+        first_name,
+        last_name,
+        username: username.trim(),
         password: hashed,
+        // let DB defaults apply when undefined
+        ...(bio !== undefined ? { bio } : {}),
+        ...(location !== undefined ? { location } : {}),
+        // prisma field is camelCase, mapped to DB profile_image_url
         profileImageUrl:
-          profileImageUrl ?? `https://picsum.photos/seed/${username}/200/200`,
-        location: location ?? 'Unknown',
+          profile_image_url ??
+          `https://picsum.photos/seed/${encodeURIComponent(username)}/200/200`,
       },
       select: {
         id: true,
         username: true,
+        first_name: true,
+        last_name: true,
+        bio: true,
         profileImageUrl: true,
         location: true,
         createdAt: true,
       },
     });
-    return toPublic(user);
+
+    return toPublicUser(user);
   } catch (err) {
     if (err?.code === 'P2002') {
       const e = new Error('Username is already taken');
-      e.status = 409;
-      throw e;
+      e.status = 409; throw e;
     }
     throw err;
   }
@@ -59,12 +85,15 @@ export const getUserById = async (id) => {
     select: {
       id: true,
       username: true,
+      first_name: true,
+      last_name: true,
+      bio: true,
       profileImageUrl: true,
       location: true,
       createdAt: true,
     },
   });
-  return u ? toPublic(u) : null;
+  return u ? toPublicUser(u) : null;
 };
 
 export const getUserByCredentials = async (username, password) => {
@@ -72,7 +101,7 @@ export const getUserByCredentials = async (username, password) => {
   if (!u) return null;
   const ok = await bcrypt.compare(password, u.password);
   if (!ok) return null;
-  return toPublic(u);
+  return toPublicUser(u);
 };
 
 export const listUsers = async ({ q, limit = 50, offset = 0 } = {}) => {
@@ -80,10 +109,16 @@ export const listUsers = async ({ q, limit = 50, offset = 0 } = {}) => {
     ? {
         OR: [
           { username: { contains: q, mode: 'insensitive' } },
+          { first_name: { contains: q, mode: 'insensitive' } },
+          { last_name: { contains: q, mode: 'insensitive' } },
           { location: { contains: q, mode: 'insensitive' } },
+          { bio: { contains: q, mode: 'insensitive' } },
         ],
       }
     : {};
+
+  const take = Number(limit);
+  const skip = Number(offset);
 
   const [rows, total] = await Promise.all([
     prisma.user.findMany({
@@ -91,52 +126,59 @@ export const listUsers = async ({ q, limit = 50, offset = 0 } = {}) => {
       select: {
         id: true,
         username: true,
+        first_name: true,
+        last_name: true,
+        bio: true,
         profileImageUrl: true,
         location: true,
         createdAt: true,
       },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-      take: Number(limit),
-      skip: Number(offset),
+      take,
+      skip,
     }),
     prisma.user.count({ where }),
   ]);
 
   return {
     total,
-    limit: Number(limit),
-    offset: Number(offset),
-    users: rows.map(toPublic),
+    limit: take,
+    offset: skip,
+    users: rows.map(toPublicUser),
   };
 };
 
-/* -------------------- “Me” refers to the user logged in  /api/users/me* -------------------- */
+/* -------------------- “Me” refers to the logged-in user (/api/users/me*) -------------------- */
 
 export const getMe = async (id) => getUserById(id);
 
 export const updateMe = async (
   id,
-  { username, profile_image_url, location }
+  { username, profile_image_url, location, first_name, last_name, bio }
 ) => {
   try {
     const updated = await prisma.user.update({
       where: { id: Number(id) },
       data: {
         ...(username !== undefined ? { username } : {}),
-        ...(profile_image_url !== undefined
-          ? { profileImageUrl: profile_image_url }
-          : {}),
+        ...(profile_image_url !== undefined ? { profileImageUrl: profile_image_url } : {}),
         ...(location !== undefined ? { location } : {}),
+        ...(first_name !== undefined ? { first_name } : {}),
+        ...(last_name !== undefined ? { last_name } : {}),
+        ...(bio !== undefined ? { bio } : {}),
       },
       select: {
         id: true,
         username: true,
+        first_name: true,
+        last_name: true,
+        bio: true,
         profileImageUrl: true,
         location: true,
         createdAt: true,
       },
     });
-    return toPublic(updated);
+    return toPublicUser(updated);
   } catch (e) {
     if (e?.code === 'P2002') {
       e.status = 409;
@@ -150,37 +192,43 @@ export const changeMyPassword = async (id, old_password, new_password) => {
   const u = await prisma.user.findUnique({ where: { id: Number(id) } });
   if (!u) {
     const e = new Error('User not found');
-    e.status = 404;
-    throw e;
+    e.status = 404; throw e;
   }
   const ok = await bcrypt.compare(old_password, u.password);
   if (!ok) {
     const e = new Error('Old password is incorrect');
-    e.status = 400;
-    throw e;
+    e.status = 400; throw e;
   }
-  const hashed = await bcrypt.hash(new_password, 10);
+  if (!new_password || new_password.length < 8) {
+    const e = new Error('New password must be at least 8 characters');
+    e.status = 400; throw e;
+  }
+  const hashed = await bcrypt.hash(new_password, SALT_ROUNDS);
   await prisma.user.update({ where: { id: u.id }, data: { password: hashed } });
 };
 
-/* -------------------- My Products & Activity -------------------- */
+/* -------------------- My Posts & Activity -------------------- */
 
 export const listMyPosts = async (
   id,
   { status, limit = 20, offset = 0 } = {}
 ) => {
   const where = { authorId: Number(id), ...(status ? { status } : {}) };
+  const take = Number(limit);
+  const skip = Number(offset);
+
   const [rows, total] = await Promise.all([
     prisma.post.findMany({
       where,
       orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }, { id: 'desc' }],
-      take: Number(limit),
-      skip: Number(offset),
+      take,
+      skip,
       include: { items: true, _count: { select: { responses: true } } },
     }),
     prisma.post.count({ where }),
   ]);
-  return { total, limit: Number(limit), offset: Number(offset), posts: rows };
+
+  return { total, limit: take, offset: skip, posts: rows };
 };
 
 export const getMyActivity = async (id, { limit = 20, offset = 0 } = {}) => {
@@ -188,45 +236,41 @@ export const getMyActivity = async (id, { limit = 20, offset = 0 } = {}) => {
   const lim = Math.min(100, Math.max(1, Number(limit) || 20));
   const off = Math.max(0, Number(offset) || 0);
 
-  const [myNewPosts, responsesOnMyPosts, myResponses, myTrades] =
-    await Promise.all([
-      prisma.post.findMany({
-        where: { authorId: userId },
-        orderBy: { createdAt: 'desc' },
-        take: lim,
-        skip: off,
-        select: { id: true, title: true, createdAt: true },
-      }),
-      prisma.response.findMany({
-        where: { post: { authorId: userId } }, // others → my posts
-        orderBy: { createdAt: 'desc' },
-        take: lim,
-        skip: off,
-        include: {
-          author: { select: { username: true } },
-          post: { select: { title: true } },
-        },
-      }),
-      prisma.response.findMany({
-        where: { authorId: userId }, // my responses
-        orderBy: { createdAt: 'desc' },
-        take: lim,
-        skip: off,
-        include: { post: { select: { title: true } } },
-      }),
-      prisma.trade.findMany({
-        where: {
-          OR: [
-            { post: { authorId: userId } },
-            { response: { authorId: userId } },
-          ],
-        },
-        orderBy: { agreedAt: 'desc' },
-        take: lim,
-        skip: off,
-        include: { post: { select: { title: true } }, response: true },
-      }),
-    ]);
+  const [myNewPosts, responsesOnMyPosts, myResponses, myTrades] = await Promise.all([
+    prisma.post.findMany({
+      where: { authorId: userId },
+      orderBy: { createdAt: 'desc' },
+      take: lim,
+      skip: off,
+      select: { id: true, title: true, createdAt: true },
+    }),
+    prisma.response.findMany({
+      where: { post: { authorId: userId } }, // others → my posts
+      orderBy: { createdAt: 'desc' },
+      take: lim,
+      skip: off,
+      include: {
+        author: { select: { username: true } },
+        post: { select: { title: true } },
+      },
+    }),
+    prisma.response.findMany({
+      where: { authorId: userId }, // my responses
+      orderBy: { createdAt: 'desc' },
+      take: lim,
+      skip: off,
+      include: { post: { select: { title: true } } },
+    }),
+    prisma.trade.findMany({
+      where: {
+        OR: [{ post: { authorId: userId } }, { response: { authorId: userId } }],
+      },
+      orderBy: { agreedAt: 'asc' }, // or 'desc' depending on how you want to see it
+      take: lim,
+      skip: off,
+      include: { post: { select: { title: true } }, response: true },
+    }),
+  ]);
 
   const items = [
     ...myNewPosts.map((p) => ({
