@@ -1,4 +1,5 @@
 // /api/usersRouter.js
+import express from 'express';
 import requireBody from '#middleware/requireBody';
 import { createToken } from '#utils/jwt';
 import requireUser from '#middleware/requireUser';
@@ -14,7 +15,6 @@ import {
   getMyActivity,
   listUsers,
 } from '#db/queries/userQueries';
-import express from 'express';
 
 const router = express.Router();
 
@@ -29,7 +29,7 @@ router.get('/me', requireUser, async (req, res, next) => {
   }
 });
 
-// PATCH /api/users/me  → update username/profile_image_url/location
+// PATCH /api/users/me  → update profile fields (username, profile_image_url, location, first_name, last_name, bio)
 router.patch('/me', requireUser, async (req, res, next) => {
   try {
     res.send(await updateMe(req.user.id, req.body));
@@ -54,36 +54,26 @@ router.patch(
   }
 );
 
-// GET /api/users/me/posts?status=&limit=     &offset= can be added if necessary, this will not have much data and be lightweight so I don't see the need for now
+// GET /api/users/me/posts?status=&limit=&offset=
 router.get('/me/posts', requireUser, async (req, res, next) => {
   try {
-    const limit = Math.min(
-      100,
-      Math.max(1, Number(req.query.limit ?? 20) || 20)
-    );
+    const limit = Math.min(100, Math.max(1, Number(req.query.limit ?? 20) || 20));
     const offset = Math.max(0, Number(req.query.offset ?? 0) || 0);
     const status = req.query.status;
     const allowedStatus = new Set(['open', 'trading', 'closed']);
     const filt = allowedStatus.has(status) ? status : undefined;
 
-    const result = await listMyPosts(req.user.id, {
-      status: filt,
-      limit,
-      offset,
-    });
+    const result = await listMyPosts(req.user.id, { status: filt, limit, offset });
     res.send(result);
   } catch (e) {
     next(e);
   }
 });
 
-// GET /api/users/me/activity?limit=               &offset= can be added if necessary, this will not have much data and be lightweight so I don't see the need for now
+// GET /api/users/me/activity?limit=&offset=
 router.get('/me/activity', requireUser, async (req, res, next) => {
   try {
-    const limit = Math.min(
-      100,
-      Math.max(1, Number(req.query.limit ?? 20) || 20)
-    );
+    const limit = Math.min(100, Math.max(1, Number(req.query.limit ?? 20) || 20));
     const offset = Math.max(0, Number(req.query.offset ?? 0) || 0);
     const result = await getMyActivity(req.user.id, { limit, offset });
     res.send(result);
@@ -94,12 +84,10 @@ router.get('/me/activity', requireUser, async (req, res, next) => {
 
 /* -------------------- public user routes -------------------- */
 
+// GET /api/users?q=&limit=&offset=
 router.get('/', async (req, res, next) => {
   try {
-    const limit = Math.min(
-      100,
-      Math.max(1, Number(req.query.limit ?? 50) || 50)
-    );
+    const limit = Math.min(100, Math.max(1, Number(req.query.limit ?? 50) || 50));
     const offset = Math.max(0, Number(req.query.offset ?? 0) || 0);
     const q = req.query.q?.toString() || undefined;
     const result = await listUsers({ q, limit, offset });
@@ -109,8 +97,8 @@ router.get('/', async (req, res, next) => {
   }
 });
 
-// GET /api/users/:id  (I made it numeric only to avoid conflicts with "me")
-router.get('/:id', async (req, res, next) => {
+// GET /api/users/:id  (numeric only to avoid conflict with "me")
+router.get('/:id(\\d+)', async (req, res, next) => {
   try {
     const user = await getUserById(Number(req.params.id));
     if (!user) return res.status(404).send('User not found');
@@ -122,9 +110,10 @@ router.get('/:id', async (req, res, next) => {
 
 /* -------------------- auth -------------------- */
 
+// POST /api/users/register
 router.post(
   '/register',
-  // now require first_name + last_name too
+  // new schema requires first_name + last_name + username + password
   requireBody(['first_name', 'last_name', 'username', 'password']),
   async (req, res, next) => {
     try {
@@ -133,12 +122,11 @@ router.post(
         last_name,
         username,
         password,
-        bio,                   // optional (defaults in schema)
-        profile_image_url,     // optional
-        location,              // optional (defaults in schema)
+        bio,                 // optional (defaults in schema)
+        profile_image_url,   // optional
+        location,            // optional (defaults in schema)
       } = req.body;
 
-      // Create user in DB
       const user = await createUser({
         first_name,
         last_name,
@@ -149,16 +137,25 @@ router.post(
         location,
       });
 
+      const token = createToken({ id: user.id, username: user.username });
+      res.status(201).send({ token, user });
+    } catch (e) {
+      // surface duplicate username 
+      if (e?.code === 'P2002' || e?.status === 409) {
+        return res.status(409).send({ error: 'Username is already taken' });
+      }
+      next(e);
+    }
+  }
+);
 
+// POST /api/users/login
 router.post(
   '/login',
   requireBody(['username', 'password']),
   async (req, res, next) => {
     try {
-      const user = await getUserByCredentials(
-        req.body.username,
-        req.body.password
-      );
+      const user = await getUserByCredentials(req.body.username, req.body.password);
       if (!user) return res.status(401).send('Invalid username or password');
       const token = createToken({ id: user.id, username: user.username });
       res.send({ token, user });
