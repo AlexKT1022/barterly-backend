@@ -148,6 +148,37 @@ export const listUsers = async ({ q, limit = 50, offset = 0 } = {}) => {
   };
 };
 
+// List posts for ANY user 
+export const listUserPosts = async (
+  userId,
+  { status, limit = 20, offset = 0 } = {}
+) => {
+  const where = {
+    authorId: Number(userId),
+    ...(status ? { status } : {}),
+  };
+
+  const take = Number(limit);
+  const skip = Number(offset);
+
+  const [rows, total] = await Promise.all([
+    prisma.post.findMany({
+      where,
+      orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }, { id: 'desc' }],
+      take,
+      skip,
+      include: {
+        items: true,
+        _count: { select: { responses: true } },
+ 
+      },
+    }),
+    prisma.post.count({ where }),
+  ]);
+
+  return { total, limit: take, offset: skip, posts: rows };
+};
+
 /* -------------------- “Me” refers to the logged-in user (/api/users/me*) -------------------- */
 
 export const getMe = async (id) => getUserById(id);
