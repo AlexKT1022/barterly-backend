@@ -1,6 +1,9 @@
 -- CreateTable
 CREATE TABLE "public"."users" (
     "id" SERIAL NOT NULL,
+    "first_name" TEXT NOT NULL,
+    "last_name" TEXT NOT NULL,
+    "bio" TEXT DEFAULT 'no bio provided',
     "username" TEXT NOT NULL,
     "password" TEXT NOT NULL,
     "profile_image_url" TEXT NOT NULL,
@@ -72,6 +75,18 @@ CREATE TABLE "public"."trades" (
     CONSTRAINT "trades_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "public"."reviews" (
+    "id" SERIAL NOT NULL,
+    "rating" INTEGER NOT NULL,
+    "comment" TEXT NOT NULL DEFAULT 'no comment provided',
+    "reviewer_id" INTEGER NOT NULL,
+    "reviewee_id" INTEGER NOT NULL,
+    "trade_id" INTEGER NOT NULL,
+
+    CONSTRAINT "reviews_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "users_username_key" ON "public"."users"("username");
 
@@ -95,3 +110,9 @@ ALTER TABLE "public"."trades" ADD CONSTRAINT "trades_post_id_fkey" FOREIGN KEY (
 
 -- AddForeignKey
 ALTER TABLE "public"."trades" ADD CONSTRAINT "trades_response_id_fkey" FOREIGN KEY ("response_id") REFERENCES "public"."responses"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "public"."reviews" ADD CONSTRAINT "reviews_reviewer_id_fkey" FOREIGN KEY ("reviewer_id") REFERENCES "public"."users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "public"."reviews" ADD CONSTRAINT "reviews_reviewee_id_fkey" FOREIGN KEY ("reviewee_id") REFERENCES "public"."users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
