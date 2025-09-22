@@ -14,6 +14,7 @@ import {
   listMyPosts,
   getMyActivity,
   listUsers,
+  listUserPosts, 
 } from '#db/queries/userQueries';
 
 const router = express.Router();
@@ -91,6 +92,30 @@ router.get('/', async (req, res, next) => {
     const offset = Math.max(0, Number(req.query.offset ?? 0) || 0);
     const q = req.query.q?.toString() || undefined;
     const result = await listUsers({ q, limit, offset });
+    res.send(result);
+  } catch (e) {
+    next(e);
+  }
+});
+
+// GET /api/users/:id/posts  (this needs to be before /:id, removed regex)
+router.get('/:id/posts', async (req, res, next) => {
+  try {
+    const userId = Number(req.params.id);
+    if (!Number.isInteger(userId)) {
+      return res.status(400).send('User id must be a number');
+    }
+
+    // 404 if user doesn't exist
+    const exists = await getUserById(userId);
+    if (!exists) return res.status(404).send('User not found');
+
+    const limit = Math.min(100, Math.max(1, Number(req.query.limit ?? 20) || 20));
+    const offset = Math.max(0, Number(req.query.offset ?? 0) || 0);
+    const allowed = new Set(['open', 'trading', 'closed']);
+    const status = allowed.has(req.query.status) ? req.query.status : undefined;
+
+    const result = await listUserPosts(userId, { status, limit, offset });
     res.send(result);
   } catch (e) {
     next(e);
