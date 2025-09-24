@@ -1,4 +1,4 @@
-// /api/offersRouter.js
+// /api/offerRouter.js
 import express from 'express';
 import requireUser from '#middleware/requireUser';
 import requireBody from '#middleware/requireBody';
@@ -15,6 +15,11 @@ import {
 import { getUserById } from '#db/queries/userQueries'; // used to 404 if user doesn't exist
 
 const router = express.Router();
+
+// just making sure the request is hitting the router, we will delete this later
+router.use((req, _res, next) => {
+  console.log('OFFERS:', req.method, req.originalUrl);
+  next();
 
 /* -------------------- Public listing & read -------------------- */
 
