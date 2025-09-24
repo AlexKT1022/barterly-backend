@@ -45,6 +45,8 @@ router.get('/:id', async (req, res, next) => {
 
 /* -------------------- Create & edit (auth required) -------------------- */
 
+router.get('/_ping', (req, res) => res.send({ ok: true, where: 'offers' }));
+
 // POST /api/offers  { post_id, message?, items?: [] }
 router.post(
   '/',
@@ -60,9 +62,7 @@ router.post(
         items,
       });
       res.status(201).send(offer);
-    } catch (e) {
-      next(e);
-    }
+    } catch (e) { next(e); }
   }
 );
 
