@@ -1,5 +1,5 @@
 import app from '#app';
-import prisma from '#db/client';
+import prisma from '#lib/prisma';
 
 const PORT = process.env.PORT ?? 3000;
 
