@@ -1,6 +1,5 @@
 generator client {
   provider = "prisma-client-js"
-  output   = "../node_modules/.prisma/client"
 }
 
 datasource db {
@@ -30,19 +29,30 @@ model User {
 model Post {
   id          Int       @id @default(autoincrement())
   authorId    Int       @map("author_id")
+  categoryId  Int       @map("category_id")
   title       String
   description String?   @default("no description provided")
   status      String    @default("open")
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime? @map("updated_at")
 
-  author User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  author   User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  Category Category @relation(fields: [categoryId], references: [id])
 
   items     PostItem[]
   responses Response[]
   trades    Trade[]
 
   @@map("posts")
+}
+
+model Category {
+  id   Int    @id @default(autoincrement())
+  name String @unique
+
+  posts Post[]
+
+  @@map("categories")
 }
 
 model PostItem {

@@ -1,5 +1,4 @@
-// /db/queries/postQueries.js
-import prisma from '#db/client';
+import prisma from '#lib/prisma';
 
 export const listPosts = async ({ status, user_id, q } = {}) => {
   const where = {

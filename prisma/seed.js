@@ -76,6 +76,35 @@ const generateUsers = async () => {
   return prisma.user.findMany();
 };
 
+const generateCategories = async () => {
+  const categories = [
+    { name: 'Electronics', icon: `<FaTv />` },
+    { name: 'Clothing', icon: `<FaTshirt />` },
+    { name: 'Books', icon: `<FaBook />` },
+    { name: 'Home & Garden', icon: `<FaHome />` },
+    { name: 'Sports', icon: `<FaFootballBall />` },
+    { name: 'Automotive', icon: `<FaCar />` },
+    { name: 'Toys & Games', icon: `<FaGamepad />` },
+    { name: 'Jewelry & Accessories', icon: `<FaRegGem />` },
+    { name: 'Office Supplies', icon: `<FaPencilRuler />` },
+    { name: 'Pet Supplies', icon: `<FaCat />` },
+    { name: 'Baby Products', icon: `<FaBabyCarriage />` },
+    { name: 'Music & Instruments', icon: `<FaGuitar />` },
+    { name: 'Art & Craft Supplies', icon: `<FaPaintBrush /> ` },
+    { name: 'Tools & Hardware', icon: `<FaWrench />` },
+    { name: 'Furniture', icon: `<FaCouch /> ` },
+    { name: 'Services', icon: `<FaPeopleCarry />` },
+  ];
+
+  await prisma.category.createMany({
+    data: categories.map((category) => {
+      return { name: category.name };
+    }),
+  });
+
+  return prisma.category.findMany();
+};
+
 const generatePosts = async (users) => {
   const entries = [
     {
@@ -169,6 +198,7 @@ const generatePosts = async (users) => {
         authorId,
         title: entry.title,
         description: entry.description,
+        categoryId: Math.floor(Math.random() * 16) + 1,
         items: { create: entry.items },
       },
       include: { items: true },
@@ -323,6 +353,7 @@ const generateReviews = async (trades, posts, responses) => {
 
 const seed = async () => {
   const users = await generateUsers();
+  const categories = await generateCategories();
   const posts = await generatePosts(users);
   const responses = await generateResponses(posts, users);
   const trades = await generateTrades(posts, responses);
