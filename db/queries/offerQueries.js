@@ -1,12 +1,27 @@
 // /db/queries/offerQueries.js
-import prisma from '#db/client.js';
+import prisma from '#db/client';
+
+/* ---------- helpers ---------- */
+
+// Trouble shooting issue helper
+const normalizeOfferItems = (items = []) =>
+  (Array.isArray(items) ? items : [])
+    .filter(it => it && typeof it.name === 'string' && it.name.trim().length > 0) // require name
+    .map(it => ({
+      name: String(it.name).trim(),
+      description: it.description ?? null,
+      // IMPORTANT: default condition so Prisma doesn't error if schema requires it
+      condition: it.condition ?? 'unspecified',
+      imageUrl: it.image_url ?? null,   
+      quantity: Number.isFinite(it.quantity) ? Number(it.quantity) : 1,
+    }));
 
 const toPublicOffer = (r) => ({
   id: r.id,
   post_id: r.postId,
   user_id: r.authorId,
   message: r.message,
-  status: r.status,                 // 'pending' | 'accepted' | 'rejected'
+  status: r.status, // 'pending' | 'accepted' | 'rejected'
   created_at: r.createdAt,
   author: r.author ? { id: r.author.id, username: r.author.username } : undefined,
   post:   r.post   ? { id: r.post.id, title: r.post.title, author_id: r.post.authorId ?? r.post.posted_by } : undefined,
@@ -20,7 +35,9 @@ const toPublicOffer = (r) => ({
   })),
 });
 
-/** List offers for a post or by a user (any combination); */
+/* ---------- queries ---------- */
+
+/** List offers for a post or by a user (any combination) */
 export const listOffers = async ({
   post_id,
   user_id,
@@ -75,7 +92,7 @@ export const createOfferWithItems = async ({
   message = '',
   items = [], // [{name, description?, condition?, image_url?, quantity?}, ...]
 }) => {
-  // optional: ensure post exists
+  // ensure post exists & is open
   const post = await prisma.post.findUnique({
     where: { id: Number(post_id) },
     select: { id: true, authorId: true, status: true },
@@ -95,15 +112,7 @@ export const createOfferWithItems = async ({
       authorId: Number(user_id),
       message,
       status: 'pending',
-      items: {
-        create: (items || []).map(it => ({
-          name: it.name,
-          description: it.description ?? null,
-          condition: it.condition ?? null,
-          imageUrl: it.image_url ?? null,
-          quantity: it.quantity ?? 1,
-        })),
-      },
+      items: { create: normalizeOfferItems(items) },
     },
     include: {
       items: true,
@@ -126,30 +135,20 @@ export const updateMyOffer = async ({
     where: { id: Number(offer_id) },
     select: { id: true, authorId: true, status: true },
   });
-  if (!current) {
-    const e = new Error('Offer not found'); e.status = 404; throw e;
-  }
-  if (current.authorId !== Number(user_id)) {
-    const e = new Error('Not your offer'); e.status = 403; throw e;
-  }
-  if (current.status !== 'pending') {
-    const e = new Error('Only pending offers can be edited'); e.status = 400; throw e;
-  }
+  if (!current) { const e = new Error('Offer not found'); e.status = 404; throw e; }
+  if (current.authorId !== Number(user_id)) { const e = new Error('Not your offer'); e.status = 403; throw e; }
+  if (current.status !== 'pending') { const e = new Error('Only pending offers can be edited'); e.status = 400; throw e; }
 
   // If items is provided, we replace them
   if (Array.isArray(items)) {
+    const normalized = normalizeOfferItems(items);
     await prisma.$transaction([
       prisma.responseItem.deleteMany({ where: { responseId: Number(offer_id) } }),
-      prisma.responseItem.createMany({
-        data: items.map(it => ({
-          responseId: Number(offer_id),
-          name: it.name,
-          description: it.description ?? null,
-          condition: it.condition ?? null,
-          imageUrl: it.image_url ?? null,
-          quantity: it.quantity ?? 1,
-        })),
-      }),
+      ...(normalized.length
+        ? [prisma.responseItem.createMany({
+            data: normalized.map(it => ({ ...it, responseId: Number(offer_id) })),
+          })]
+        : []),
     ]);
   }
 
@@ -166,7 +165,7 @@ export const updateMyOffer = async ({
   return toPublicOffer(updated);
 };
 
-/** Accept an offer (post owner only) → marks offer accepted, others rejected, creates trade, closes post */
+/** Accept an offer (post owner only) → accept this, reject others, create trade, close post */
 export const acceptOffer = async ({ offer_id, acting_user_id }) => {
   return prisma.$transaction(async (tx) => {
     const offer = await tx.response.findUnique({
@@ -174,7 +173,6 @@ export const acceptOffer = async ({ offer_id, acting_user_id }) => {
       include: { post: { select: { id: true, authorId: true, status: true } } },
     });
     if (!offer) { const e = new Error('Offer not found'); e.status = 404; throw e; }
-
     if (offer.post.authorId !== Number(acting_user_id)) {
       const e = new Error('Only the post owner can accept an offer'); e.status = 403; throw e;
     }
@@ -182,35 +180,22 @@ export const acceptOffer = async ({ offer_id, acting_user_id }) => {
       const e = new Error('Only pending offers can be accepted'); e.status = 400; throw e;
     }
 
-    // 1) Accept this offer
-    await tx.response.update({
-      where: { id: offer.id },
-      data: { status: 'accepted' },
-    });
-
-    // 2) Reject all other offers for the same post that are still pending( We dont have to do this, just wanted to cover all bases whie I was in the code zone
+    await tx.response.update({ where: { id: offer.id }, data: { status: 'accepted' } });
     await tx.response.updateMany({
       where: { postId: offer.post.id, id: { not: offer.id }, status: 'pending' },
       data: { status: 'rejected' },
     });
 
-    // 3) Create trade
     const trade = await tx.trade.create({
-      data: {
-        postId: offer.post.id,
-        responseId: offer.id,
-        agreedAt: new Date(),
-        status: 'completed',
-      },
+      data: { postId: offer.post.id, responseId: offer.id, agreedAt: new Date(), status: 'completed' },
     });
 
-    // 4) Mark post as traded (or closed)
     await tx.post.update({
       where: { id: offer.post.id },
       data: { status: 'traded', updatedAt: new Date() },
     });
 
-    return trade; // or return the accepted offer; up to your API
+    return trade;
   });
 };
 
