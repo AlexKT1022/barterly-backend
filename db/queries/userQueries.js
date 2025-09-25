@@ -275,67 +275,69 @@ export const getMyActivity = async (id, { limit = 20, offset = 0 } = {}) => {
   const lim = Math.min(100, Math.max(1, Number(limit) || 20));
   const off = Math.max(0, Number(offset) || 0);
 
-  const [myNewPosts, responsesOnMyPosts, myResponses, myTrades] =
-    await Promise.all([
-      prisma.post.findMany({
-        where: { authorId: userId },
-        orderBy: { createdAt: 'desc' },
-        take: lim,
-        skip: off,
-        select: { id: true, title: true, createdAt: true },
-      }),
-      prisma.response.findMany({
-        where: { post: { authorId: userId } }, // others → my posts
-        orderBy: { createdAt: 'desc' },
-        take: lim,
-        skip: off,
-        include: {
-          author: { select: { username: true } },
-          post: { select: { title: true } },
-        },
-      }),
-      prisma.response.findMany({
-        where: { authorId: userId }, // my responses
-        orderBy: { createdAt: 'desc' },
-        take: lim,
-        skip: off,
-        include: { post: { select: { title: true } } },
-      }),
-      prisma.trade.findMany({
-        where: {
-          OR: [
-            { post: { authorId: userId } },
-            { response: { authorId: userId } },
-          ],
-        },
-        orderBy: { agreedAt: 'asc' }, // or 'desc' depending on how you want to see it
-        take: lim,
-        skip: off,
-        include: { post: { select: { title: true } }, response: true },
-      }),
-    ]);
+  const [myNewPosts, responsesOnMyPosts, myResponses, myTrades] = await Promise.all([
+    prisma.post.findMany({
+      where: { authorId: userId },
+      orderBy: { createdAt: 'desc' },
+      take: lim, skip: off,
+      select: { id: true, title: true, createdAt: true },
+    }),
+    prisma.response.findMany({
+      where: { post: { authorId: userId } },  // others → my posts
+      orderBy: { createdAt: 'desc' },
+      take: lim, skip: off,
+      select: {
+        id: true,
+        createdAt: true,
+        childPostId: true,                     // <-- add this
+        author: { select: { username: true } },
+        post:   { select: { title: true } },
+      },
+    }),
+    prisma.response.findMany({
+      where: { authorId: userId },            // my responses
+      orderBy: { createdAt: 'desc' },
+      take: lim, skip: off,
+      select: {
+        id: true,
+        createdAt: true,
+        childPostId: true,                     // <-- add this
+        post: { select: { title: true } },
+      },
+    }),
+    prisma.trade.findMany({
+      where: {
+        OR: [{ post: { authorId: userId } }, { response: { authorId: userId } }],
+      },
+      orderBy: { agreedAt: 'desc' },
+      take: lim, skip: off,
+      include: { post: { select: { title: true } }, response: true },
+    }),
+  ]);
 
   const items = [
-    ...myNewPosts.map((p) => ({
+    ...myNewPosts.map(p => ({
       type: 'post_created',
       at: p.createdAt,
       post_id: p.id,
       title: p.title,
     })),
-    ...responsesOnMyPosts.map((r) => ({
+    ...responsesOnMyPosts.map(r => ({
       type: 'response_on_my_post',
       at: r.createdAt,
       post_title: r.post.title,
       from: r.author.username,
       response_id: r.id,
+      child_post_id: r.childPostId ?? null,   
     })),
-    ...myResponses.map((r) => ({
+    ...myResponses.map(r => ({
       type: 'my_response',
       at: r.createdAt,
       post_title: r.post.title,
       response_id: r.id,
+      child_post_id: r.childPostId ?? null,   
     })),
-    ...myTrades.map((t) => ({
+    ...myTrades.map(t => ({
       type: 'trade',
       at: t.agreedAt,
       status: t.status,
