@@ -10,6 +10,7 @@ import getUserFromToken from '#middleware/getUserFromToken';
 import postsRouter from '#api/routes/postsRouter';
 import usersRouter from '#api/routes/usersRouter';
 import offerRouter from '#api/routes/offerRouter.js';
+import categoriesRouter from '#api/routes/categoriesRouter.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -27,7 +28,8 @@ app.use(getUserFromToken);
 
 app.use('/api/users', usersRouter);
 app.use('/api/posts', postsRouter);
-app.use('/api/offers', offerRouter);   
+app.use('/api/offers', offerRouter);  
+app.use('/api/categories', categoriesRouter);
 
 app.get('/', (req, res) => {
   return res.send(':)');
