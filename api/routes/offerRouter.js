@@ -20,6 +20,7 @@ const router = express.Router();
 router.use((req, _res, next) => {
   console.log('OFFERS:', req.method, req.originalUrl);
   next();
+});
 
 /* -------------------- Public listing & read -------------------- */
 
