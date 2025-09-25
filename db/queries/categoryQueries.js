@@ -1,5 +1,5 @@
 // /db/queries/categoryQueries.js
-import prisma from '#db/client.js';
+import prisma from '#lib/prisma';
 
 /** List categories with optional search + pagination */
 export const listCategories = async ({ q, limit = 100, offset = 0 } = {}) => {
