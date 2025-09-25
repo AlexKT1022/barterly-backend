@@ -1,7 +1,7 @@
 // /db/queries/categoryQueries.js
 import prisma from '#lib/prisma';
 
-/** List categories with optional search + pagination */
+/** List all categories. Added pagination */
 export const listCategories = async ({ q, limit = 100, offset = 0 } = {}) => {
   const where = q
     ? { name: { contains: q, mode: 'insensitive' } }
@@ -19,7 +19,7 @@ export const listCategories = async ({ q, limit = 100, offset = 0 } = {}) => {
       select: {
         id: true,
         name: true,
-        _count: { select: { posts: true } }, // nice-to-have
+        _count: { select: { posts: true } }, 
       },
     }),
     prisma.category.count({ where }),
