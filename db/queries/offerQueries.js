@@ -1,5 +1,5 @@
 // /db/queries/offerQueries.js
-import prisma from '#db/client';
+import prisma from '#lib/prisma';
 
 // I created this because of the issue we were having with postman, prisma doesnt like undefined at all
 const normalizeOfferItems = (items = []) =>
