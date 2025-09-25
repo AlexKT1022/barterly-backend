@@ -20,8 +20,8 @@ model User {
 
   posts           Post[]
   responses       Response[]
-  reviewsGiven    Review[]   @relation("Reviewer")
-  reviewsReceived Review[]   @relation("Reviewee")
+  reviewsGiven    Review[]  @relation("Reviewer")
+  reviewsReceived Review[]  @relation("Reviewee")
 
   @@map("users")
 }
@@ -39,8 +39,11 @@ model Post {
   author   User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
   Category Category @relation(fields: [categoryId], references: [id])
 
+  // Two separate relations to Response (must be named)
+  responses        Response[] @relation("ResponseParentPost")  // responses where this post is the parent
+  responsesAsChild Response[] @relation("ResponseChildPost")   // responses where this post is the child
+
   items     PostItem[]
-  responses Response[]
   trades    Trade[]
 
   @@map("posts")
@@ -70,18 +73,23 @@ model PostItem {
 }
 
 model Response {
-  id        Int      @id @default(autoincrement())
-  postId    Int      @map("post_id")
-  authorId  Int      @map("author_id")
-  message   String?  @default("no message provided")
-  status    String   @default("pending")
-  createdAt DateTime @default(now()) @map("created_at")
+  id          Int      @id @default(autoincrement())
+  postId      Int      @map("post_id")
+  authorId    Int      @map("author_id")
+  message     String?  @default("no message provided")
+  status      String   @default("pending")
+  createdAt   DateTime @default(now()) @map("created_at")
 
+  // NEW: child_post_id column + relation
+  childPostId Int?     @map("child_post_id")
+  childPost   Post?    @relation("ResponseChildPost", fields: [childPostId], references: [id], onDelete: SetNull)
+
+  // Existing parent-post relation (now named)
+  post   Post @relation("ResponseParentPost", fields: [postId], references: [id], onDelete: Cascade)
   author User @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  post   Post @relation(fields: [postId], references: [id], onDelete: Cascade)
 
-  items ResponseItem[]
-  Trade Trade[]
+  items  ResponseItem[]
+  Trade  Trade[]
 
   @@map("responses")
 }
