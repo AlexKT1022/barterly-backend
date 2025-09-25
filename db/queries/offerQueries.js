@@ -18,32 +18,21 @@ const toPublicOffer = (r) => ({
   id: r.id,
   post_id: r.postId,
   user_id: r.authorId,
+  child_post_id: r.childPostId ?? null,
   message: r.message,
-  status: r.status, // 'pending' | 'accepted' | 'rejected'
+  status: r.status,                 // 'pending' | 'accepted' | 'rejected'
   created_at: r.createdAt,
-  child_post_id: r.childPostId ?? null, // <-- NEW code, if something breaks
   author: r.author ? { id: r.author.id, username: r.author.username } : undefined,
-  post:   r.post   ? { id: r.post.id, title: r.post.title, author_id: r.post.authorId ?? r.post.posted_by } : undefined,
-  child_post: r.childPost
-    ? { id: r.childPost.id, title: r.childPost.title, author_id: r.childPost.authorId }
-    : undefined, // <-- NEW
-  items: (r.items ?? []).map(it => ({
-    id: it.id,
-    name: it.name,
-    description: it.description,
-    condition: it.condition,
-    image_url: it.imageUrl,
-    quantity: it.quantity,
-  })),
+  post:   r.post   ? { id: r.post.id, title: r.post.title, author_id: r.post.authorId } : undefined,
+  child_post: r.childPost ? { id: r.childPost.id, title: r.childPost.title, author_id: r.childPost.authorId } : undefined,
 });
 
-/* ---------- queries ---------- */
-
-/** List offers for a post or by a user (any combination) */
+/** List offers with optional filters */
 export const listOffers = async ({
   post_id,
   user_id,
   status,
+  child_post_id,
   limit = 20,
   offset = 0,
 } = {}) => {
@@ -51,6 +40,7 @@ export const listOffers = async ({
     ...(post_id ? { postId: Number(post_id) } : {}),
     ...(user_id ? { authorId: Number(user_id) } : {}),
     ...(status ? { status } : {}),
+    ...(child_post_id ? { childPostId: Number(child_post_id) } : {}),
   };
 
   const take = Math.max(1, Math.min(100, Number(limit)));
@@ -63,10 +53,9 @@ export const listOffers = async ({
       take,
       skip,
       include: {
-        items: true,
-        author: { select: { id: true, username: true } },
-        post:   { select: { id: true, title: true, authorId: true } },
-        childPost: { select: { id: true, title: true, authorId: true } }, // <-- NEW code, if something breaks
+        author:    { select: { id: true, username: true } },
+        post:      { select: { id: true, title: true, authorId: true } },
+        childPost: { select: { id: true, title: true, authorId: true } },
       },
     }),
     prisma.response.count({ where }),
@@ -80,40 +69,46 @@ export const getOfferById = async (id) => {
   const r = await prisma.response.findUnique({
     where: { id: Number(id) },
     include: {
-      items: true,
-      author: { select: { id: true, username: true } },
-      post:   { select: { id: true, title: true, authorId: true } },
-      childPost: { select: { id: true, title: true, authorId: true } }, // <-- NEW
+      author:    { select: { id: true, username: true } },
+      post:      { select: { id: true, title: true, authorId: true } },
+      childPost: { select: { id: true, title: true, authorId: true } },
     },
   });
   return r ? toPublicOffer(r) : null;
 };
 
-/** Create an offer (response) with its items */
-export const createOfferWithItems = async ({
+/** Create an offer (no items) with optional child_post_id */
+export const createOffer = async ({
   post_id,
   user_id,
   message = '',
-  items = [], // [{name, description?, condition?, image_url?, quantity?}, ...]
-  child_post_id, // <-- NEW (optional)
+  child_post_id, // optional
 }) => {
-  // ensure parent post exists & is open
-  const post = await prisma.post.findUnique({
+  // make sure parent post exists & is open
+  const parent = await prisma.post.findUnique({
     where: { id: Number(post_id) },
     select: { id: true, authorId: true, status: true },
   });
-  if (!post) { const e = new Error('Post not found'); e.status = 404; throw e; }
-  if (post.status === 'closed' || post.status === 'traded') {
+  if (!parent) { const e = new Error('Post not found'); e.status = 404; throw e; }
+  if (parent.status === 'closed' || parent.status === 'traded') {
     const e = new Error('Post is not open for offers'); e.status = 400; throw e;
   }
 
-  // if provided, ensure child post exists
+  // if child_post_id provided, make sure it exists and belongs to the offering user
+  let childData = {};
   if (child_post_id != null) {
     const child = await prisma.post.findUnique({
       where: { id: Number(child_post_id) },
-      select: { id: true },
+      select: { id: true, authorId: true },
     });
-    if (!child) { const e = new Error('child_post_id does not reference an existing post'); e.status = 400; throw e; }
+    if (!child) { const e = new Error('child_post_id not found'); e.status = 404; throw e; }
+    if (child.authorId !== Number(user_id)) {
+      const e = new Error('child_post_id must belong to the offering user'); e.status = 403; throw e;
+    }
+    if (child.id === parent.id) {
+      const e = new Error('child_post_id cannot equal post_id'); e.status = 400; throw e;
+    }
+    childData = { childPostId: child.id };
   }
 
   const created = await prisma.response.create({
@@ -122,27 +117,24 @@ export const createOfferWithItems = async ({
       authorId: Number(user_id),
       message,
       status: 'pending',
-      childPostId: child_post_id != null ? Number(child_post_id) : undefined, // <-- NEW code, if something breaks
-      items: { create: normalizeOfferItems(items) },
+      ...childData,
     },
     include: {
-      items: true,
-      author: { select: { id: true, username: true } },
-      post:   { select: { id: true, title: true, authorId: true } },
-      childPost: { select: { id: true, title: true, authorId: true } }, // <-- NEW code, if something breaks
+      author:    { select: { id: true, username: true } },
+      post:      { select: { id: true, title: true, authorId: true } },
+      childPost: { select: { id: true, title: true, authorId: true } },
     },
   });
 
   return toPublicOffer(created);
 };
 
-/** Update your own offer's message */
+/** Update your own offer’s message and/or child_post_id (pending only) */
 export const updateMyOffer = async ({
   offer_id,
   user_id,
   message,
-  items,          // optional: full replacement array
-  child_post_id,  // <-- NEW (optional; pass null to clear)
+  child_post_id,
 }) => {
   const current = await prisma.response.findUnique({
     where: { id: Number(offer_id) },
@@ -152,48 +144,39 @@ export const updateMyOffer = async ({
   if (current.authorId !== Number(user_id)) { const e = new Error('Not your offer'); e.status = 403; throw e; }
   if (current.status !== 'pending') { const e = new Error('Only pending offers can be edited'); e.status = 400; throw e; }
 
-  // validate child_post_id if provided (null allowed to clear)
-  if (child_post_id !== undefined && child_post_id !== null) {
-    const child = await prisma.post.findUnique({
-      where: { id: Number(child_post_id) },
-      select: { id: true },
-    });
-    if (!child) { const e = new Error('child_post_id does not reference an existing post'); e.status = 400; throw e; }
-  }
+  const data = {};
+  if (message !== undefined) data.message = message;
 
-  // If items is provided, we replace them
-  if (Array.isArray(items)) {
-    const normalized = normalizeOfferItems(items);
-    await prisma.$transaction([
-      prisma.responseItem.deleteMany({ where: { responseId: Number(offer_id) } }),
-      ...(normalized.length
-        ? [prisma.responseItem.createMany({
-            data: normalized.map(it => ({ ...it, responseId: Number(offer_id) })),
-          })]
-        : []),
-    ]);
+  if (child_post_id !== undefined) {
+    if (child_post_id === null) {
+      data.childPostId = null; // allow clearing the link
+    } else {
+      const child = await prisma.post.findUnique({
+        where: { id: Number(child_post_id) },
+        select: { id: true, authorId: true },
+      });
+      if (!child) { const e = new Error('child_post_id not found'); e.status = 404; throw e; }
+      if (child.authorId !== Number(user_id)) {
+        const e = new Error('child_post_id must belong to the offering user'); e.status = 403; throw e;
+      }
+      data.childPostId = child.id;
+    }
   }
 
   const updated = await prisma.response.update({
     where: { id: Number(offer_id) },
-    data: {
-      ...(message !== undefined ? { message } : {}),
-      ...(child_post_id !== undefined
-        ? { childPostId: child_post_id === null ? null : Number(child_post_id) }
-        : {}),
-    },
+    data,
     include: {
-      items: true,
-      author: { select: { id: true, username: true } },
-      post:   { select: { id: true, title: true, authorId: true } },
-      childPost: { select: { id: true, title: true, authorId: true } }, // <-- NEW code, if something breaks
+      author:    { select: { id: true, username: true } },
+      post:      { select: { id: true, title: true, authorId: true } },
+      childPost: { select: { id: true, title: true, authorId: true } },
     },
   });
 
   return toPublicOffer(updated);
 };
 
-/** Accept an offer (post owner only) → accept this, reject others, create trade, close post */
+/** Accept an offer (post owner only) → accept this, reject others, create trade, close post. I didnt change anything below here as I dont think any changes are needed for no items.  */
 export const acceptOffer = async ({ offer_id, acting_user_id }) => {
   return prisma.$transaction(async (tx) => {
     const offer = await tx.response.findUnique({
