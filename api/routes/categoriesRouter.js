@@ -1,6 +1,6 @@
 // /api/categoriesRouter.js
 import express from 'express';
-import { listCategories } from '#db/queries/categoryQueries.js';
+import { listCategories } from '#db/queries/categoryQueries';
 
 const router = express.Router();
 
