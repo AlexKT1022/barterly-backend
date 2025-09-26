@@ -9,8 +9,8 @@ import getUserFromToken from '#middleware/getUserFromToken';
 
 import postsRouter from '#api/routes/postsRouter';
 import usersRouter from '#api/routes/usersRouter';
-import offerRouter from '#api/routes/offerRouter.js';
-import categoriesRouter from '#api/routes/categoriesRouter.js';
+import offerRouter from '#api/routes/offerRouter';
+import categoriesRouter from '#api/routes/categoriesRouter';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
