@@ -1,31 +1,29 @@
 // /db/queries/offerQueries.js
 import prisma from '#lib/prisma';
 
-// I created this because of the issue we were having with postman, prisma doesnt like undefined at all
-const normalizeOfferItems = (items = []) =>
-  (Array.isArray(items) ? items : [])
-    .filter(it => it && typeof it.name === 'string' && it.name.trim().length > 0) // require name
-    .map(it => ({
-      name: String(it.name).trim(),
-      description: it.description ?? null,
-      // Default condition so Prisma doesn't error if schema requires it
-      condition: it.condition ?? 'unspecified',
-      imageUrl: it.image_url ?? null,   // client sends image_url; DB field is imageUrl
-      quantity: Number.isFinite(it.quantity) ? Number(it.quantity) : 1,
-    }));
+/* ---------- mappers ---------- */
 
 const toPublicOffer = (r) => ({
   id: r.id,
   post_id: r.postId,
   user_id: r.authorId,
+  author_id: r.authorId, 
   child_post_id: r.childPostId ?? null,
-  message: r.message,
+  message: r.message ?? null,
   status: r.status,                 // 'pending' | 'accepted' | 'rejected'
   created_at: r.createdAt,
-  author: r.author ? { id: r.author.id, username: r.author.username } : undefined,
-  post:   r.post   ? { id: r.post.id, title: r.post.title, author_id: r.post.authorId } : undefined,
-  child_post: r.childPost ? { id: r.childPost.id, title: r.childPost.title, author_id: r.childPost.authorId } : undefined,
+  author: r.author
+    ? { id: r.author.id, username: r.author.username }
+    : undefined,
+  post: r.post
+    ? { id: r.post.id, title: r.post.title, author_id: r.post.authorId }
+    : undefined,
+  child_post: r.childPost
+    ? { id: r.childPost.id, title: r.childPost.title, author_id: r.childPost.authorId }
+    : undefined,
 });
+
+/* ---------- queries ---------- */
 
 /** List offers with optional filters */
 export const listOffers = async ({
@@ -77,14 +75,14 @@ export const getOfferById = async (id) => {
   return r ? toPublicOffer(r) : null;
 };
 
-/** Create an offer (no items) with optional child_post_id */
+/** Create an offer */
 export const createOffer = async ({
   post_id,
   user_id,
   message = '',
   child_post_id, // optional
 }) => {
-  // make sure parent post exists & is open
+  // ensure parent post exists & is open
   const parent = await prisma.post.findUnique({
     where: { id: Number(post_id) },
     select: { id: true, authorId: true, status: true },
@@ -94,7 +92,7 @@ export const createOffer = async ({
     const e = new Error('Post is not open for offers'); e.status = 400; throw e;
   }
 
-  // if child_post_id provided, make sure it exists and belongs to the offering user
+  // if child_post_id provided, ensure it exists and belongs to offering user
   let childData = {};
   if (child_post_id != null) {
     const child = await prisma.post.findUnique({
@@ -149,7 +147,7 @@ export const updateMyOffer = async ({
 
   if (child_post_id !== undefined) {
     if (child_post_id === null) {
-      data.childPostId = null; // allow clearing the link
+      data.childPostId = null; // clear link
     } else {
       const child = await prisma.post.findUnique({
         where: { id: Number(child_post_id) },
@@ -176,21 +174,18 @@ export const updateMyOffer = async ({
   return toPublicOffer(updated);
 };
 
-/** Accept an offer (post owner only) → accept this, reject others, create trade, close post. I didnt change anything below here as I dont think any changes are needed for no items.  */
-
+/** Accept an offer (post owner only) → accept this, reject others, create trade, close post */
 export const acceptOffer = async ({ offer_id, acting_user_id }) => {
   return prisma.$transaction(async (tx) => {
     const offer = await tx.response.findUnique({
       where: { id: Number(offer_id) },
       include: {
-        post: { select: { id: true, authorId: true, status: true } },   // parent post
-        childPost: { select: { id: true, status: true } },               // (This might be null)
+        post: { select: { id: true, authorId: true, status: true } }, // parent post
+        childPost: { select: { id: true, status: true } },             // may be null
       },
     });
 
-    if (!offer) {
-      const e = new Error('Offer not found'); e.status = 404; throw e;
-    }
+    if (!offer) { const e = new Error('Offer not found'); e.status = 404; throw e; }
     if (offer.post.authorId !== Number(acting_user_id)) {
       const e = new Error('Only the post owner can accept an offer'); e.status = 403; throw e;
     }
@@ -200,26 +195,18 @@ export const acceptOffer = async ({ offer_id, acting_user_id }) => {
 
     const now = new Date();
 
-    // 1) Mark this offer accepted
-    await tx.response.update({
-      where: { id: offer.id },
-      data: { status: 'accepted' },
-    });
+    // 1) Accept this offer
+    await tx.response.update({ where: { id: offer.id }, data: { status: 'accepted' } });
 
-    // 2) Reject any other pending offers on the parent post
+    // 2) Reject other pending offers on the parent post
     await tx.response.updateMany({
       where: { postId: offer.post.id, id: { not: offer.id }, status: 'pending' },
       data: { status: 'rejected' },
     });
 
-    // 3) Create the trade record
+    // 3) Create trade
     const trade = await tx.trade.create({
-      data: {
-        postId: offer.post.id,
-        responseId: offer.id,
-        agreedAt: now,
-        status: 'completed',
-      },
+      data: { postId: offer.post.id, responseId: offer.id, agreedAt: now, status: 'completed' },
     });
 
     // 4) Close the parent post
@@ -228,14 +215,13 @@ export const acceptOffer = async ({ offer_id, acting_user_id }) => {
       data: { status: 'traded', updatedAt: now },
     });
 
-    // 5) If this offer referenced a child post
+    // 5) If a child post was offered, close it too and reject its other offers
     if (offer.childPost?.id) {
       await tx.post.update({
         where: { id: offer.childPost.id },
         data: { status: 'traded', updatedAt: now },
       });
 
-      // OPTIONAL: This should close out any other offers that were made on the post if trade is accepted. 
       await tx.response.updateMany({
         where: { postId: offer.childPost.id, status: 'pending' },
         data: { status: 'rejected' },
@@ -264,10 +250,9 @@ export const rejectOffer = async ({ offer_id, acting_user_id }) => {
     where: { id: Number(offer_id) },
     data: { status: 'rejected' },
     include: {
-      items: true,
-      author: { select: { id: true, username: true } },
-      post:   { select: { id: true, title: true, authorId: true } },
-      childPost: { select: { id: true, title: true, authorId: true } }, // <-- NEW code, if something breaks
+      author:    { select: { id: true, username: true } },
+      post:      { select: { id: true, title: true, authorId: true } },
+      childPost: { select: { id: true, title: true, authorId: true } },
     },
   });
 
