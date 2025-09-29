@@ -33,15 +33,22 @@ router.get('/:id', async (req, res, next) => {
 router.post(
   '/',
   requireUser,
-  requireBody(['title', 'items']),
+  //add category_id
+  requireBody(['title', 'items', 'category_id']),
   async (req, res, next) => {
     try {
-      const { title, description = '', items } = req.body;
+      console.log("Request body:", req.body); // ← prints the request body
+
+      //add category_id
+      const { title, description = '', items, category_id, } = req.body;
       const post = await createPostWithItems({
         userId: req.user.id,
         title,
         description,
+        //add    categoryId: category_id,
+        categoryId: category_id,
         items,
+
       });
       res.status(201).send(post);
     } catch (e) {
