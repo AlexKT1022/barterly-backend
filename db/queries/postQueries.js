@@ -49,12 +49,13 @@ export const getPostById = async (id) => {
     })),
   };
 };
-
+// add categoryId
 export const createPostWithItems = async ({
   userId,
   title,
   description = '',
   items,
+  categoryId,
 }) => {
   if (!Array.isArray(items) || !items.length) {
     const e = new Error('items array required');
@@ -66,6 +67,8 @@ export const createPostWithItems = async ({
       authorId: Number(userId),
       title,
       description,
+      //add categoryId: Number(categoryId),
+      categoryId: Number(categoryId),
       status: 'open',
       updatedAt: new Date(),
       items: {
