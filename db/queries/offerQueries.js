@@ -177,13 +177,20 @@ export const updateMyOffer = async ({
 };
 
 /** Accept an offer (post owner only) → accept this, reject others, create trade, close post. I didnt change anything below here as I dont think any changes are needed for no items.  */
+
 export const acceptOffer = async ({ offer_id, acting_user_id }) => {
   return prisma.$transaction(async (tx) => {
     const offer = await tx.response.findUnique({
       where: { id: Number(offer_id) },
-      include: { post: { select: { id: true, authorId: true, status: true } } },
+      include: {
+        post: { select: { id: true, authorId: true, status: true } },   // parent post
+        childPost: { select: { id: true, status: true } },               // (This might be null)
+      },
     });
-    if (!offer) { const e = new Error('Offer not found'); e.status = 404; throw e; }
+
+    if (!offer) {
+      const e = new Error('Offer not found'); e.status = 404; throw e;
+    }
     if (offer.post.authorId !== Number(acting_user_id)) {
       const e = new Error('Only the post owner can accept an offer'); e.status = 403; throw e;
     }
@@ -191,20 +198,49 @@ export const acceptOffer = async ({ offer_id, acting_user_id }) => {
       const e = new Error('Only pending offers can be accepted'); e.status = 400; throw e;
     }
 
-    await tx.response.update({ where: { id: offer.id }, data: { status: 'accepted' } });
+    const now = new Date();
+
+    // 1) Mark this offer accepted
+    await tx.response.update({
+      where: { id: offer.id },
+      data: { status: 'accepted' },
+    });
+
+    // 2) Reject any other pending offers on the parent post
     await tx.response.updateMany({
       where: { postId: offer.post.id, id: { not: offer.id }, status: 'pending' },
       data: { status: 'rejected' },
     });
 
+    // 3) Create the trade record
     const trade = await tx.trade.create({
-      data: { postId: offer.post.id, responseId: offer.id, agreedAt: new Date(), status: 'completed' },
+      data: {
+        postId: offer.post.id,
+        responseId: offer.id,
+        agreedAt: now,
+        status: 'completed',
+      },
     });
 
+    // 4) Close the parent post
     await tx.post.update({
       where: { id: offer.post.id },
-      data: { status: 'traded', updatedAt: new Date() },
+      data: { status: 'traded', updatedAt: now },
     });
+
+    // 5) If this offer referenced a child post
+    if (offer.childPost?.id) {
+      await tx.post.update({
+        where: { id: offer.childPost.id },
+        data: { status: 'traded', updatedAt: now },
+      });
+
+      // OPTIONAL: This should close out any other offers that were made on the post if trade is accepted. 
+      await tx.response.updateMany({
+        where: { postId: offer.childPost.id, status: 'pending' },
+        data: { status: 'rejected' },
+      });
+    }
 
     return trade;
   });
