@@ -25,7 +25,7 @@
     "db:seed": "npx prisma seed",
     "db:studio": "npx prisma studio",
     "dev": "node --watch --env-file=.env server.js",
-    "start": "db:generate && db:reset && node --env-file=.env server.js"
+    "start": "node --env-file=.env server.js"
   },
   "dependencies": {
     "@prisma/client": "^6.16.2",
