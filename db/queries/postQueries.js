@@ -30,23 +30,65 @@ export const listPosts = async ({ status, user_id, q } = {}) => {
 };
 
 export const getPostById = async (id) => {
-  const post = await prisma.post.findUnique({
-    where: { id: Number(id) },
-    include: { author: { select: { username: true } }, items: true },
-  });
+  const pid = Number(id);
+
+  const [post, summaryBothSides, linkedOffers] = await prisma.$transaction([
+    
+    prisma.post.findUnique({
+      where: { id: pid },
+      include: {
+        author: { select: { id: true, username: true } },
+        items: true,
+      },
+    }),
+
+    // count responses where this post is the parent OR the child
+    prisma.response.groupBy({
+      by: ['status'],
+      where: {
+        OR: [{ postId: pid }, { childPostId: pid }],
+      },
+      _count: { _all: true },
+    }),
+
+  
+    prisma.response.findMany({
+      where: { childPostId: pid },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        status: true,
+        message: true,
+        createdAt: true,
+        author: { select: { id: true, username: true } },
+        post: { select: { id: true, title: true, authorId: true } }, 
+      },
+    }),
+  ]);
+
   if (!post) return null;
-  const summary = await prisma.response.groupBy({
-    by: ['status'],
-    where: { postId: Number(id) },
-    _count: { _all: true },
-  });
+
+
+  const responses_summary = summaryBothSides.map((s) => ({
+    status: s.status,
+    count: s._count._all,
+  }));
+
+
   return {
-    ...post,
-    username: post.author.username,
-    responses_summary: summary.map((s) => ({
-      status: s.status,
-      count: s._count._all,
-    })),
+    id: post.id,
+    authorId: post.authorId,
+    categoryId: post.categoryId,
+    title: post.title,
+    description: post.description,
+    status: post.status,
+    createdAt: post.createdAt,
+    updatedAt: post.updatedAt,
+    author: { id: post.author.id, username: post.author.username },
+    items: post.items,
+
+    responses_summary,
+    linked_offers: linkedOffers,
   };
 };
 // add categoryId
