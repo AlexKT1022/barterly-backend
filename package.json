@@ -21,12 +21,11 @@
   "scripts": {
     "db:generate": "npx prisma generate",
     "db:migrate": "npx prisma migrate dev",
-    "db:migrate:reset": "npx prisma migrate reset --force",
     "db:reset": "npx prisma migrate reset --force",
     "db:seed": "npx prisma seed",
     "db:studio": "npx prisma studio",
     "dev": "node --watch --env-file=.env server.js",
-    "start": "npx prisma db seed && node --env-file=.env server.js"
+    "start": "db:generate && db:reset && node --env-file=.env server.js"
   },
   "dependencies": {
     "@prisma/client": "^6.16.2",
